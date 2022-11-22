@@ -295,13 +295,21 @@ class TestContinuous:
         for text in labels[1:-1]:
             assert re.match(r"^\d+m$", text)
 
-    def test_label_base_from_transform(self, x):
+    def test_label_base_from_log_transform(self, x):
 
         s = Continuous(trans="log")
         a = PseudoAxis(s._setup(x, Coordinate())._matplotlib_scale)
         a.set_view_interval(10, 1000)
         label, = a.major.formatter.format_ticks([100])
         assert r"10^{2}" in label
+
+    def test_label_base_from_ln_transform(self, x):
+
+        s = Continuous(trans="ln")
+        a = PseudoAxis(s._setup(x, Coordinate())._matplotlib_scale)
+        a.set_view_interval(1, 100)
+        label, = a.major.formatter.format_ticks([np.exp(2)])
+        assert r"e^{2}" in label
 
     def test_label_type_checks(self):
 

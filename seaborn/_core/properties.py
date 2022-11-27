@@ -82,7 +82,7 @@ class Property:
         # (e.g. color). How best to handle that? One option is to call super after
         # handling property-specific possibilities (e.g. for color check that the
         # arg is not a valid palette name) but that could get tricky.
-        trans_args = ["log", "symlog", "logit", "pow", "sqrt"]
+        trans_args = ["log", "symlog", "ln", "logit", "pow", "sqrt"]
         if isinstance(arg, str):
             if any(arg.startswith(k) for k in trans_args):
                 # TODO validate numeric type? That should happen centrally somewhere

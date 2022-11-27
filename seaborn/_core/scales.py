@@ -1,5 +1,6 @@
 from __future__ import annotations
 import re
+import math
 from copy import copy
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -21,6 +22,7 @@ from matplotlib.ticker import (
     MultipleLocator,
     EngFormatter,
     FuncFormatter,
+    LogFormatter,
     LogFormatterSciNotation,
     ScalarFormatter,
     StrMethodFormatter,
@@ -548,12 +550,15 @@ class Continuous(ContinuousBase):
 
         log_base = symlog_thresh = None
         if isinstance(trans, str):
-            m = re.match(r"^log(\d*)", trans)
-            if m is not None:
-                log_base = float(m[1] or 10)
-            m = re.match(r"symlog(\d*)", trans)
-            if m is not None:
-                symlog_thresh = float(m[1] or 1)
+            if trans == "ln":
+                log_base = np.e
+            else:
+                m = re.match(r"^log(\d*)", trans)
+                if m is not None:
+                    log_base = float(m[1] or 10)
+                m = re.match(r"symlog(\d*)", trans)
+                if m is not None:
+                    symlog_thresh = float(m[1] or 1)
         return log_base, symlog_thresh
 
     def _get_locators(self, locator, at, upto, count, every, between, minor):
@@ -635,7 +640,10 @@ class Continuous(ContinuousBase):
 
         elif base is not None:
             # We could add other log options if necessary
-            formatter = LogFormatterSciNotation(base)
+            if base == np.e:
+                formatter = _LnFormatter()
+            else:
+                formatter = LogFormatterSciNotation(base)
 
         elif unit is not None:
             if isinstance(unit, tuple):
@@ -978,3 +986,48 @@ def _make_power_transforms(exp: float) -> TransFuncs:
         return np.sign(x) * np.power(np.abs(x), 1 / exp)
 
     return forward, inverse
+
+
+class _LnFormatter(LogFormatter):
+    """
+    Overriding LogFormatter to ensure all formatting options are present.
+    This also helps with nicer formatting of the coordinates for the default
+    pyplot window since LogFormatter implements `format_data_short`.
+    """
+    def __init__(self):
+        super().__init__(base=np.e)
+
+    def __call__(self, x, pos=None):
+        # Based on mpl implementation of LogFormatterMathtext
+
+        min_exp = mpl.rcParams['axes.formatter.min_exponent']
+
+        if x == 0:  # Symlog
+            return r'$\mathdefault{0}$'
+
+        sign_string = '-' if x < 0 else ''
+        x = abs(x)
+        b = np.e
+
+        # only label the decades
+        fx = math.log(x)
+        is_x_decade = math.isclose(fx, round(fx))
+        exponent = round(fx) if is_x_decade else np.floor(fx)
+        coeff = round(b ** (fx - exponent))
+        if is_x_decade:
+            fx = round(fx)
+
+        if self.labelOnlyBase and not is_x_decade:
+            return ''
+        if self._sublabels is not None and coeff not in self._sublabels:
+            return ''
+
+        # use string formatting of the base since it is not a number
+        base = 'e'
+
+        if abs(fx) < min_exp:
+            return r'$\mathdefault{%s%g}$' % (sign_string, x)
+        elif not is_x_decade:
+            return r'$\mathdefault{%s%s^{%.2f}}$' % (sign_string, base, fx)
+        else:
+            return r'$\mathdefault{%s%s^{%d}}$' % (sign_string, base, fx)

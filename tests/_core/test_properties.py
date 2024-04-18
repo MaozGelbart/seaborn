@@ -181,6 +181,9 @@ class TestColor(DataFixtures):
         x = pd.Series([1, 2, np.nan, 4])
         m = Color().get_mapping(Continuous(), x)
         assert np.isnan(m(x)[2]).all()
+        
+    def test_magic_args_mapping(self, num_vector):
+        Color().get_mapping(Continuous(trans="sqrt"), num_vector)
 
     def test_bad_scale_values_continuous(self, num_vector):
 
@@ -237,6 +240,17 @@ class TestColor(DataFixtures):
         scale = Color().infer_scale(values, vectors[data_type])
         assert isinstance(scale, scale_class)
         assert scale.values == values
+
+    @pytest.mark.parametrize(
+        "trans",
+        ["pow", "sqrt", "log", "symlog", "log5", "logit", "symlog87"]
+    )
+    def test_inference_magic_args(self, trans, num_vector):
+        
+        scale = Color().infer_scale(trans, num_vector)
+        assert isinstance(scale, Continuous)
+        assert scale.trans == trans
+        assert scale.values is None
 
     def test_standardization(self):
 

@@ -43,6 +43,7 @@ Mapping = Callable[[ArrayLike], ArrayLike]
 
 class Property:
     """Base class for visual properties that can be set directly or be data scaling."""
+    _TRANS_ARGS = ["log", "symlog", "logit", "pow", "sqrt"]
 
     # When True, scales for this property will populate the legend by default
     legend = False
@@ -76,9 +77,8 @@ class Property:
         # (e.g. color). How best to handle that? One option is to call super after
         # handling property-specific possibilities (e.g. for color check that the
         # arg is not a valid palette name) but that could get tricky.
-        trans_args = ["log", "symlog", "logit", "pow", "sqrt"]
         if isinstance(arg, str):
-            if any(arg.startswith(k) for k in trans_args):
+            if any(arg.startswith(k) for k in self._TRANS_ARGS):
                 # TODO validate numeric type? That should happen centrally somewhere
                 return Continuous(trans=arg)
             else:
@@ -183,6 +183,8 @@ class IntervalProperty(Property):
             return Nominal(arg)
         elif var_type == "datetime":
             return Temporal(arg)
+        elif isinstance(arg, str) and any(arg.startswith(k) for k in self._TRANS_ARGS):
+            return Continuous(trans=arg)
         # TODO other variable types
         else:
             return Continuous(arg)
@@ -607,8 +609,6 @@ class Color(Property):
         if callable(arg):
             return Continuous(arg)
 
-        # TODO Do we accept str like "log", "pow", etc. for semantics?
-
         if not isinstance(arg, str):
             msg = " ".join([
                 f"A single scale argument for {self.variable} variables must be",
@@ -616,6 +616,8 @@ class Color(Property):
             ])
             raise TypeError(msg)
 
+        if any(arg.startswith(k) for k in self._TRANS_ARGS):
+            return Continuous(trans=arg)
         if arg in QUAL_PALETTES:
             return Nominal(arg)
         elif var_type == "numeric":
